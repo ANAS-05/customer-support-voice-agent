@@ -2,8 +2,10 @@ import logging
 from dotenv import load_dotenv
 from livekit import agents
 from livekit.agents import Agent, AgentServer, AgentSession, room_io, JobContext
-from livekit.plugins import cartesia, deepgram, groq, noise_cancellation, silero
+from livekit.plugins import  noise_cancellation, silero
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
+from livekit.agents import llm, stt, tts, inference
+
 
 from prompts import system_prompt
 
@@ -21,13 +23,36 @@ class CustomerSupportAssistant(Agent):
 async def my_agent(context: JobContext):
     
     transcripts = []
+    vad = silero.VAD.load()
+
+    # Configure the voice pipeline with STT, LLM, TTS, and VAD providers
     session = AgentSession(
-        stt=deepgram.STT(model="nova-3-general"),
-        llm=groq.LLM(model="openai/gpt-oss-120b"),
-        tts=cartesia.TTS(model="sonic-3"),
-        vad=silero.VAD.load(),
+        # LLM with fallback: OpenAI primary, Gemini backup
+        llm=llm.FallbackAdapter(
+            [
+                inference.LLM(model="openai/gpt-4.1-mini"),
+                inference.LLM(model="google/gemini-2.5-flash"),
+            ]
+        ),
+        # STT with fallback: AssemblyAI primary, Deepgram backup
+        stt=stt.FallbackAdapter(
+            [
+                inference.STT.from_model_string("assemblyai/universal-streaming:en"),
+                inference.STT.from_model_string("deepgram/nova-3"),
+            ]
+        ),
+        # TTS with fallback: Cartesia primary, Inworld backup
+        tts=tts.FallbackAdapter(
+            [
+                inference.TTS.from_model_string("cartesia/sonic-3:9626c31c-bec5-4cca-baa8-f8ba9e84c8bc"),
+                inference.TTS.from_model_string("inworld/inworld-tts-1"),
+            ]
+        ),
+        vad=vad,
         turn_detection=MultilingualModel(),
+        preemptive_generation=True,
     )
+    
 
     @session.on("conversation_item_added")
     def on_item_added(event):

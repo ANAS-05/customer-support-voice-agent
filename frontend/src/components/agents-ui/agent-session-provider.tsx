@@ -1,0 +1,39 @@
+import {
+  SessionProvider,
+  type UseSessionReturn,
+  RoomAudioRenderer,
+  type SessionProviderProps,
+  type RoomAudioRendererProps,
+} from '@livekit/components-react';
+import { Room } from 'livekit-client';
+
+/**
+ * Props for the AgentSessionProvider component.
+ * Combines SessionProviderProps with RoomAudioRendererProps.
+ */
+export type AgentSessionProviderProps = SessionProviderProps &
+  RoomAudioRendererProps & {
+    /* The room to provide.*/
+    room?: Room;
+    /*The volume to set for the audio renderer.*/
+    volume?: number;
+    /* Whether to mute the audio renderer.*/
+    muted?: boolean;
+    /* The session to provide.*/
+    session: UseSessionReturn;
+    /* The children to render.*/
+    children: React.ReactNode;
+  };
+
+export function AgentSessionProvider({
+  session,
+  children,
+  ...roomAudioRendererProps
+}: AgentSessionProviderProps) {
+  return (
+    <SessionProvider session={session}>
+      {children}
+      <RoomAudioRenderer {...roomAudioRendererProps} />
+    </SessionProvider>
+  );
+}
