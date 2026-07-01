@@ -2,8 +2,7 @@ import logging
 from dotenv import load_dotenv
 from livekit import agents
 from livekit.agents import Agent, AgentServer, AgentSession, room_io, JobContext
-from livekit.plugins import  noise_cancellation, silero
-from livekit.plugins.turn_detector.multilingual import MultilingualModel
+from livekit.plugins import noise_cancellation
 from livekit.agents import llm, stt, tts, inference
 
 
@@ -23,7 +22,6 @@ class CustomerSupportAssistant(Agent):
 async def my_agent(context: JobContext):
     
     transcripts = []
-    vad = silero.VAD.load()
 
     # Configure the voice pipeline with STT, LLM, TTS, and VAD providers
     session = AgentSession(
@@ -48,9 +46,10 @@ async def my_agent(context: JobContext):
                 inference.TTS.from_model_string("inworld/inworld-tts-1"),
             ]
         ),
-        vad=vad,
-        turn_detection=MultilingualModel(),
-        preemptive_generation=True,
+        turn_handling={
+            "turn_detection": inference.TurnDetector(),
+            "preemptive_generation": {"enabled": True},
+        },
     )
     
 
