@@ -1,30 +1,39 @@
 import os
-import time
+import datetime
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from livekit.api import AccessToken, VideoGrants
+from pydantic import BaseModel
 
 load_dotenv()
 
 API_KEY = os.environ["LIVEKIT_API_KEY"]
 API_SECRET = os.environ["LIVEKIT_API_SECRET"]
+LIVEKIT_URL = os.environ["LIVEKIT_URL"]
 
 app = FastAPI(title="QuickBite Token Server")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
-    allow_methods=["GET"],
+    allow_methods=["POST"],
     allow_headers=["*"],
 )
 
 
-@app.get("/token")
-def get_token(room: str, identity: str) -> dict:
-    if not room or not identity:
-        raise HTTPException(status_code=400, detail="room and identity are required")
+class TokenRequest(BaseModel):
+    room_name: str | None = None
+    participant_identity: str | None = None
+    participant_name: str | None = None
+
+
+@app.post("/token")
+def issue_token(req: TokenRequest) -> dict:
+    room = req.room_name or "quickbite-support"
+    identity = req.participant_identity or "guest"
+    name = req.participant_name or identity or "Test user"
 
     grants = VideoGrants(
         room_join=True,
@@ -37,13 +46,17 @@ def get_token(room: str, identity: str) -> dict:
     token = (
         AccessToken(API_KEY, API_SECRET)
         .with_identity(identity)
-        .with_name(identity)
-        .with_ttl(time.time() + 60 * 60)
+        .with_name(name)
+        .with_ttl(datetime.timedelta(hours=1))
         .with_grants(grants)
         .to_jwt()
     )
 
-    return {"token": token}
+    print("\n" + "=" * 50)
+    print("✅ TOKEN GENERATED SUCCESSFULLY!")
+    print("=" * 50)
+
+    return {"server_url": LIVEKIT_URL, "participant_token": token}
 
 
 if __name__ == "__main__":
